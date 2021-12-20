@@ -383,16 +383,19 @@ export namespace Smore::Serialization {
 		}
 	};
 
+	template <typename T>
+	size_t Mark(const T* object, SerializationContextBase& buffer);
+
 	template <PointerLike T>
 	struct ByteTranslator<T> {
 		static constexpr size_t Size = sizeof(size_t);
 
-		using PointerTypes = mp_list<T>;
+		using ObjectType = std::decay_t<decltype(*T)>;
+		using PointerTypes = mp_list<>;
 
 		static void Serialize(std::span<std::byte> span, const T& value, SerializationContextBase& buffer)
 		{
-			auto id = buffer.Mark(&*value);
-			ByteTranslator<bool>::Serialize(span.subspan(0, ByteTranslator<bool>::Size), id);
+			ByteTranslator<bool>::Serialize(span.subspan(0, ByteTranslator<bool>::Size), Mark<ObjectType>(value, buffer));
 		}
 	};
 
