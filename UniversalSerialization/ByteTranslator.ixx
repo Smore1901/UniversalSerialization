@@ -1,11 +1,11 @@
-#pragma once
+import SerializationContextBase;
 
 #include <array>
 #include <memory>
 #include <numeric>
 #include <optional>
 #include <span>
-#include <string>
+#include <string>		
 #include <tuple>
 #include <type_traits>
 #include <variant>
@@ -15,11 +15,9 @@
 #include "boost/mp11/algorithm.hpp"
 #include "boost/range/irange.hpp"
 
-#include "SerializationContextBase.h"
+export module ByteTranslator;
 
-namespace Smore::Serialization {
-	using namespace boost::mp11;
-
+namespace {
 
 	template <size_t FieldCount, typename T>
 	constexpr auto UnsafeAsTuple(T&& pod) {
@@ -193,12 +191,6 @@ namespace Smore::Serialization {
 	template<typename T>
 	constexpr auto struct_bind_num_v = num_bindings_impl<T, any>();
 
-	template <typename T>
-	concept Fundamental = std::is_fundamental_v<T>;
-
-	template<typename T>
-	concept Aggregate = std::is_aggregate_v<T>;
-
 	struct _simplePredicates {
 		template <typename T>
 		struct is_pointer_like : std::false_type {};
@@ -221,6 +213,16 @@ namespace Smore::Serialization {
 			using type = T;
 		};
 	};
+}
+
+using namespace boost::mp11;
+
+export namespace Smore::Serialization {
+	template <typename T>
+	concept Fundamental = std::is_fundamental_v<T>;
+
+	template<typename T>
+	concept Aggregate = std::is_aggregate_v<T>;
 
 	template <typename T>
 	constexpr bool IsPointerLike = _simplePredicates::is_pointer_like<T>::value;
@@ -254,7 +256,8 @@ namespace Smore::Serialization {
 
 		using PointerTypes = mp_list<>;
 
-		static void Serialize(std::span<std::byte> span, const T value, SerializationContextBase&) {
+		static void Serialize(std::span<std::byte> span, const T value, SerializationContextBase&)
+		{
 			std::memcpy(span.data(), &value, Size);
 		}
 	};
@@ -386,7 +389,8 @@ namespace Smore::Serialization {
 
 		using PointerTypes = mp_list<T>;
 
-		static void Serialize(std::span<std::byte> span, const T& value, SerializationContextBase& buffer) {
+		static void Serialize(std::span<std::byte> span, const T& value, SerializationContextBase& buffer)
+		{
 			auto id = buffer.Mark(&*value);
 			ByteTranslator<bool>::Serialize(span.subspan(0, ByteTranslator<bool>::Size), id);
 		}
@@ -406,18 +410,21 @@ namespace Smore::Serialization {
 		using RefTupleT = decltype(AsRefTuple(std::declval<T&>()));
 		using TupleT = mp_transform<std::remove_reference_t, RefTupleT>;
 
-		static
-			static void Serialize(std::span<std::byte> span, const std::variant<Ts...>& value, SerializationContextBase& buffer) {
-			constexpr std::array sizes{ ByteTranslator<Ts>::Size ... };
-			constexpr auto offsets = [] {
-				std::array<size_t, sizeof...(Ts)> ret;
-				std::exclusive_scan(sizes.begin(), sizes.end(), ret, 0);
-				return ret;
-			}();
+		template <size_t Index>
+		using Ts = boost::mp11::mp_at_c<TupleT, Index>;
+
+		static void Serialize(std::span<std::byte> span, const T& value, SerializationContextBase& buffer) {
 			auto tuple = AsRefTuple(value);
 			[&] <size_t ... Indices> (std::index_sequence<Indices...>) {
-				ByteTranslator<mp_at_c<TupleT, Indices>>::Serialize(span.subspan(offset[Indices], size[indices]), std::get<Indices>(tuple), buffer);
-			}(std::make_index_sequence<sizeof(Indices...)>{});
+				constexpr std::array sizes{ ByteTranslator<Ts>::Size ... };
+				constexpr auto offsets = [] {
+					std::array<size_t, sizeof...(Ts)> ret;
+					std::exclusive_scan(sizes.begin(), sizes.end(), ret, 0);
+					return ret;
+				}();
+
+				((ByteTranslator<mp_at_c<TupleT, Indices>>::Serialize(span.subspan(offsets[Indices], sizes[Indices]), std::get<Indices>(tuple), buffer)), ...);
+			}(std::make_index_sequence<ElementCount>{});
 		}
 	};
 }

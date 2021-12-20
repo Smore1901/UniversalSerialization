@@ -1,13 +1,20 @@
 #pragma once
+
+import ByteTranslator;
+import SerializationContextBase;
+
 #include <iterator>
+#include <map>
+#include <mutex>
+#include <set>
 #include <span>
+#include <typeindex>
+#include <vector>
+#include <xutility>
 
+export module SerializationContext;
 
-namespace Smore::Serialization {
-
-	template <typename>
-	struct ByteTranslator;
-
+namespace {
 	template <typename T>
 	concept CompileTimeKnown = !std::is_polymorphic_v<T> || std::is_final_v<T>;
 
@@ -16,14 +23,9 @@ namespace Smore::Serialization {
 
 	template <typename T>
 	concept PolymorphicClass = std::is_polymorphic_v<T>;
+}
 
-	struct SerializationContextBase {
-		virtual ~SerializationContextBase() = default;
-		virtual std::size_t push(std::span<const std::byte> span) = 0;
-	};
-
-	template <typename T>
-	struct SerializationTypeContextBase;
+export namespace Smore::Serialization {
 
 	template <CompileTimeKnown T>
 	struct SerializationTypeContextBase<T> : virtual SerializationContextBase {
@@ -53,7 +55,7 @@ namespace Smore::Serialization {
 			std::for_each(begin, end, [&](auto* ptr) {
 				cache.emplace_back(typeid(ptr), ptr);
 				});
-			Dispatch
+			// Dispatch
 		}
 	};
 
@@ -63,14 +65,32 @@ namespace Smore::Serialization {
 		std::set<T*> _toDo;
 		std::mutex _lock;
 
-		template <InputIterator I>
+		template <std::input_iterator I>
 		std::vector<std::size_t> Mark(I begin, I end) {
-			std::lock_guard<g> _lock;
+			std::lock_guard g{ _lock };
 			std::for_each(begin, end, [&](auto& p) {
 				if (!_cache.contains(p)) {
 					_toDo.emplace(p);
 				}
 				});
 		}
+	};
+
+	template <typename T, typename ... Ts>
+	struct SerializationTypeContextDispatch;
+
+	template <AbstractClass T, typename ... Ts>
+	struct SerializationTypeContextDispatch<T, Ts ...> : SerializationTypeContextBase<T> {
+
+		static const auto& GetCasters() {
+			static const std::array casters{ {std::type_index{typeid(Ts)},+[](const T* ptr) {return static_cast<void*>(dynamic_cast<Ts>(ptr)); }}... };
+		}
+		virtual std::vector<std::size_t> Dispatch(std::vector<const T*> pointers) = 0;
+
+	};
+
+	template <typename ... Ts>
+	struct SerializationContext : virtual SerializationContextBase, SerializationTypeContextDispatch<Ts, Ts...>... {
+
 	};
 }

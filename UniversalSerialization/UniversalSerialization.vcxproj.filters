@@ -18,19 +18,20 @@
     <ClCompile Include="UniversalSerialization.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="SerializationContext.h">
-      <Filter>Header Files</Filter>
+    <ClCompile Include="SerializationContext.ixx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ByteTranslator.ixx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SerializationContextBase.ixx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ByteTranslator.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="ByteTranslator.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="SerializationContextBase.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>

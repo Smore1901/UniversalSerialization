@@ -1,4 +1,7 @@
-#include "SerializationContext.h"
+import SerializationContext;
+
+#include <memory>
+#include "boost/mp11/list.hpp"
 
 struct I1 {
 	virtual ~I1() = default;
